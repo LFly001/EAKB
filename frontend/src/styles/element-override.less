@@ -1,0 +1,37 @@
+// ==========================================
+// Element Plus 样式覆盖
+// ==========================================
+
+// 全局调整 Element Plus 默认样式变量
+:root {
+  --el-color-primary: @primary-color;
+  --el-border-radius-base: @radius-small;
+}
+
+// 侧边栏菜单定制 (将在 AppLayout 中使用)
+.eakb-sidebar {
+  .el-menu {
+    border-right: none;
+  }
+}
+
+// 页面内容区通用样式
+.page-container {
+  padding: @spacing-lg;
+  height: 100%;
+  overflow-y: auto;
+}
+
+// 搜索筛选区域
+.page-toolbar {
+  .flex-between();
+  margin-bottom: @spacing-md;
+  padding: @spacing-md;
+  .card-base();
+}
+
+// 表格卡片
+.page-table-card {
+  .card-base();
+  padding: @spacing-md;
+}

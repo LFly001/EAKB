@@ -1,0 +1,119 @@
+# ============================================================
+# EAKB — 企业知识库智能助手 Docker Compose 编排
+# 服务: MySQL 8.0 / Neo4j 5.x / MinIO
+# ============================================================
+services:
+  # ==========================================
+  # MySQL 8.0 — 业务关系数据库
+  # ==========================================
+  mysql:
+    image: mysql:8.0
+    container_name: eakb-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root123456}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-eakb}
+      MYSQL_USER: ${MYSQL_USER:-eakb}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-eakb123456}
+      TZ: Asia/Shanghai
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      # 注意: 表结构由 Alembic 迁移管理 (alembic upgrade head),
+      # 不使用 initdb 脚本 (原 init.sql 挂载已移除 — 该文件不存在)
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-authentication-plugin=mysql_native_password
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root123456}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - eakb-network
+
+  # ==========================================
+  # Neo4j 5.x — 知识图谱数据库
+  # ==========================================
+  neo4j:
+    image: neo4j:5
+    container_name: eakb-neo4j
+    restart: unless-stopped
+    environment:
+      NEO4J_AUTH: ${NEO4J_USERNAME:-neo4j}/${NEO4J_PASSWORD:-neo4j123456}
+      NEO4J_dbms_memory_heap_initial__size: 512m
+      NEO4J_dbms_memory_heap_max__size: 1g
+      NEO4J_dbms_memory_pagecache_size: 512m
+      TZ: Asia/Shanghai
+    ports:
+      - "${NEO4J_HTTP_PORT:-7474}:7474"   # HTTP
+      - "${NEO4J_BOLT_PORT:-7687}:7687"   # Bolt
+    volumes:
+      - neo4j_data:/data
+      - neo4j_logs:/logs
+      - neo4j_import:/var/lib/neo4j/import
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:7474 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    networks:
+      - eakb-network
+
+  # ==========================================
+  # MinIO — 对象存储服务
+  # ==========================================
+  minio:
+    image: minio/minio:latest
+    container_name: eakb-minio
+    restart: unless-stopped
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin123456}
+      TZ: Asia/Shanghai
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"       # API
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"   # Console
+    volumes:
+      - minio_data:/data
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - eakb-network
+
+# ==========================================
+# 数据持久化卷
+# ==========================================
+volumes:
+  mysql_data:
+    driver: local
+    name: eakb_mysql_data
+  neo4j_data:
+    driver: local
+    name: eakb_neo4j_data
+  neo4j_logs:
+    driver: local
+    name: eakb_neo4j_logs
+  neo4j_import:
+    driver: local
+    name: eakb_neo4j_import
+  minio_data:
+    driver: local
+    name: eakb_minio_data
+
+# ==========================================
+# 网络
+# ==========================================
+networks:
+  eakb-network:
+    driver: bridge
+    name: eakb-network

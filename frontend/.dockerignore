@@ -1,0 +1,5 @@
+# 构建上下文排除
+node_modules
+dist
+*.log
+.env

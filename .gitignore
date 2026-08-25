@@ -1,0 +1,40 @@
+# ============================================================
+# EAKB .gitignore (Phase 8 交付)
+# 项目当前未初始化 git 仓库; 交付时 init 前务必保留本文件,
+# 防止真实密钥 (.env) / 虚拟环境 / 模型缓存被提交
+# ============================================================
+
+# 环境与密钥
+.env
+.env.bak
+backend/.env
+
+# Python
+backend/venv/
+backend/.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# 向量库持久化数据 (运行时生成)
+backend/chroma_data/
+
+# Embedding 模型目录 (VM 上挂载用, 权重文件不入库)
+models/
+
+# 前端
+frontend/node_modules/
+frontend/dist/
+
+# 日志与备份
+*.log
+logs/
+backups/
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

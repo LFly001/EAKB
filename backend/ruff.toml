@@ -1,0 +1,31 @@
+# Ruff 配置 — EAKB 后端
+# 使用安装的 ruff 版本默认规则集, 仅对项目刻意风格与框架惯用法做豁免
+
+[lint]
+# 豁免规则 (项目刻意风格, 统一豁免并注明理由):
+# - BLE001: 项目刻意采用 `except Exception + 日志` 的尽力而为降级模式
+#   (向量化/图谱构建/启动初始化等辅助流程失败仅告警, 不中断主流程)
+# - S110: try-except-pass 的静默降级点均有上下文注释说明意图 (如任务取消清理)
+# - DTZ003/DTZ005: 项目统一使用本地时间 naive datetime 与 MySQL DATETIME 对齐,
+#   不引入 tz-aware (时区语义由部署环境统一为本地时区)
+ignore = ["BLE001", "S110", "DTZ003", "DTZ005"]
+
+[lint.flake8-bugbear]
+# B008 豁免: FastAPI 依赖注入的 Depends()/Query() 等放在参数默认值
+# 是框架官方写法 (参考 FastAPI 文档), bugbear 的
+# "Do not perform function call in argument defaults" 对此是已知误报
+extend-immutable-calls = [
+    "fastapi.Depends",
+    "fastapi.Query",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Form",
+    "fastapi.File",
+    "fastapi.Header",
+    "fastapi.Cookie",
+]
+
+[lint.per-file-ignores]
+# SQLAlchemy 模型的 relationship() 前向引用 (Mapped["ClassName"] 字符串注解)
+# 是官方推荐写法, 跨模型文件不互相 import; F821 对此是误报
+"app/models/*.py" = ["F821"]

@@ -1,0 +1,60 @@
+// ==========================================
+// Less Mixins
+// ==========================================
+
+// 文字超出省略 (单行)
+.text-ellipsis() {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// 多行省略
+.text-ellipsis-multi(@lines: 2) {
+  display: -webkit-box;
+  -webkit-line-clamp: @lines;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// 清除浮动
+.clearfix() {
+  &::after {
+    content: "";
+    display: table;
+    clear: both;
+  }
+}
+
+// Flex 居中
+.flex-center() {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Flex 两端对齐
+.flex-between() {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+// 卡片基础样式
+.card-base() {
+  background: @bg-white;
+  border: 1px solid @border-light;
+  border-radius: @radius-normal;
+  box-shadow: @shadow-light;
+}
+
+// 按钮 hover 效果
+.btn-hover() {
+  &:hover {
+    opacity: 0.9;
+  }
+  &:active {
+    opacity: 0.8;
+  }
+}

@@ -1,0 +1,84 @@
+# ============================================================
+# EAKB 生产编排 (Phase 8) — docker-compose.prod.yml
+# 包含基础中间件编排 (docker-compose.yml: MySQL/Neo4j/MinIO),
+# 追加后端与前端容器, 实现完整生产部署 (CLAUDE.md 部署规范 §11.1)
+#
+# 启动: sudo docker compose -f docker-compose.prod.yml up -d --build
+# 前置: 根目录 .env 已配置; 本地 Embedding 模型已下载 (见 deployment.md)
+# ============================================================
+include:
+  - docker-compose.yml
+
+services:
+  # ==========================================
+  # 后端 — FastAPI + uvicorn (Python 3.14)
+  # ==========================================
+  backend:
+    build: ./backend
+    container_name: eakb-backend
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # 容器内服务名替代本机地址 (覆盖 .env 中的 127.0.0.1)
+      MYSQL_HOST: mysql
+      NEO4J_URI: bolt://neo4j:7687
+      MINIO_ENDPOINT: minio:9000
+      CHROMA_PERSIST_DIR: /data/chroma
+      # 生产模式: 关闭调试文档与异常堆栈
+      APP_ENV: production
+      DEBUG: "false"
+      # 注意: 不能写成 ${EMBEDDING_MODEL_NAME:-...} — .env 里有同名键,
+      # 会插值出宿主路径 (/home/kun/...) 在容器内不存在; 此处硬编码容器内路径
+      EMBEDDING_MODEL_NAME: /models/bge-large-zh-v1.5
+      EMBEDDING_DEVICE: cpu
+    volumes:
+      # 向量库持久化: 直接挂载宿主现有 chroma_data (延续开发期向量数据, 免重新向量化)
+      - ${EAKB_CHROMA_DIR:-./backend/chroma_data}:/data/chroma
+      # 本地 bge 模型目录 (宿主下载后挂载, 避免容器内重复下载)
+      - ${EAKB_EMBEDDING_MODEL_DIR:-./models}:/models:ro
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    networks:
+      - eakb-network
+
+  # ==========================================
+  # 前端 — Nginx 静态托管 + API 反代 (SSE 透传)
+  # ==========================================
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: /api/v1
+        VITE_SSE_BASE_URL: /api/v1
+    container_name: eakb-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    healthcheck:
+      # busybox wget 不支持 -qO- 合并写法, 必须拆开 -q -O
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    networks:
+      - eakb-network
+
+# 说明: Chroma 使用宿主目录绑定挂载 (./backend/chroma_data), 无需声明卷;
+# MySQL/Neo4j/MinIO 卷在基础编排 docker-compose.yml 中已声明

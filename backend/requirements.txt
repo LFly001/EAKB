@@ -1,0 +1,111 @@
+# ============================================================
+# EAKB 企业知识库智能助手 — Python 依赖
+# 适配: Python 3.14.4 / Ubuntu 26.04
+# ============================================================
+
+# ----------------------------
+# Web 框架
+# ----------------------------
+fastapi>=0.115.0
+uvicorn[standard]>=0.34.0
+starlette>=0.41.0
+
+# ----------------------------
+# 数据库 ORM & 迁移
+# ----------------------------
+sqlalchemy[asyncio]>=2.0.36
+alembic>=1.14.0
+pymysql>=1.1.1
+aiomysql>=0.2.0
+cryptography>=44.0.0
+
+# ----------------------------
+# 鉴权与安全
+# ----------------------------
+python-jose[cryptography]>=3.3.0
+bcrypt>=4.2.0
+python-multipart>=0.0.19
+
+# ----------------------------
+# 数据校验
+# ----------------------------
+pydantic>=2.10.0
+pydantic-settings>=2.7.0
+
+# ----------------------------
+# RAG 核心 — LlamaIndex (0.14.x 全系支持 Python 3.14)
+# ----------------------------
+llama-index>=0.14.0
+llama-index-core>=0.14.0
+llama-index-llms-openai>=0.4.0
+llama-index-embeddings-openai>=0.4.0
+llama-index-vector-stores-chroma>=0.5.0
+llama-index-readers-file>=0.4.0
+
+# ----------------------------
+# Embedding — 本地 bge 模型 (默认方案, Phase 3)
+# 首次运行自动从 HuggingFace 下载模型 (约 1.3GB), 网络受限时
+# 可设 HF_ENDPOINT=https://hf-mirror.com 或改用本地模型路径
+#
+# ⚠️ torch 不写在本文件, 必须先单独安装 CPU 版 (虚拟机无 NVIDIA GPU):
+#     pip install torch --index-url https://download.pytorch.org/whl/cpu
+# 原因: 默认 PyPI 的 torch 是 CUDA 版 (含 4-5GB nvidia 依赖),
+#       且安装时临时解压会撑爆 1.7G 的 /tmp (tmpfs), 报 [Errno 122] 磁盘配额超限
+# ----------------------------
+sentence-transformers>=4.0.0
+
+# ----------------------------
+# 向量库 — ChromaDB
+# 注意: 1.5.3+ 已迁移到 Pydantic v2，支持 Python 3.14
+# 但 onnxruntime 可能仍无 3.14 wheel，如安装失败:
+#   方案A: pip install onnxruntime==1.21.0  (试最新版)
+#   方案B: 改用 Qdrant 向量库替代 ChromaDB
+# ----------------------------
+chromadb>=1.5.3
+
+# ----------------------------
+# 图数据库 — Neo4j
+# ----------------------------
+neo4j>=5.27.0
+
+# ----------------------------
+# OpenAI 原生 SDK — DeepSeek 流式问答/实体抽取直连 (Phase 5/6)
+# 注意: 原本是 llama-index-llms-openai 的传递依赖, 此处显式声明
+# ----------------------------
+openai>=1.60.0
+
+# ----------------------------
+# 对象存储 — MinIO
+# ----------------------------
+minio>=7.2.0
+
+# ----------------------------
+# 文档解析
+# ----------------------------
+PyPDF2>=3.0.0
+pdfplumber>=0.11.0
+python-docx>=1.1.0
+openpyxl>=3.1.0
+markdown>=3.7
+python-pptx>=1.0.0
+
+# ----------------------------
+# HTTP 客户端 (SSE / 回调)
+# ----------------------------
+httpx>=0.28.0
+aiohttp>=3.11.0
+sse-starlette>=2.1.0
+
+# ----------------------------
+# 工具类
+# ----------------------------
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# ----------------------------
+# 开发工具
+# ----------------------------
+ruff>=0.8.0
+mypy>=1.14.0
+pytest>=8.3.0
+pytest-asyncio>=0.25.0
