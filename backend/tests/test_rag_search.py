@@ -51,7 +51,8 @@ def _fake_chunks() -> list[dict]:
     ]
 
 
-def _fake_rag_params() -> dict[str, Any]:
+async def _fake_rag_params(db: Any) -> dict[str, Any]:
+    """get_rag_params 桩 — 静态方法被实例调用时传入 db"""
     return {
         "top_k": 5,
         "similarity_threshold": 0.75,
@@ -197,9 +198,18 @@ class TestRagSearchEndpoint:
         assert resp.json()["code"] == 40000
 
     @pytest.mark.asyncio(loop_scope="function")
-    async def test_invalid_body_42200(self, async_client: AsyncClient) -> None:
-        """空问题 → 42200 参数校验 (require_internal_key 之前校验顺序无关)"""
-        resp = await async_client.post("/api/v1/rag/search", json={"question": ""})
+    async def test_invalid_body_42200(
+        self, async_client: AsyncClient, override_db: Any, monkeypatch: Any
+    ) -> None:
+        """空问题 → 42200 参数校验"""
+        # 请求体校验失败在 require_internal_key 之前拦截, 但覆盖 get_db 避免真实连接
+        override_db(FakeDB())
+        _patch_config_key(monkeypatch, TEST_INTERNAL_KEY)
+        resp = await async_client.post(
+            "/api/v1/rag/search",
+            json={"question": ""},
+            headers={"X-Internal-Key": TEST_INTERNAL_KEY},
+        )
         assert resp.status_code == 422
         assert resp.json()["code"] == 42200
 
