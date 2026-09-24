@@ -17,7 +17,7 @@ SSE 事件协议详见 docs/api-reference.md (meta/sources/delta/done/error)
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.dependencies import get_current_user, get_db
+from app.dependencies import get_current_user, get_db, require_internal_key
 from app.models.user import SysUser
 from app.schemas.common import PageQuery, PageResponse
 from app.schemas.conversation import (
@@ -27,7 +27,11 @@ from app.schemas.conversation import (
     ConversationTitleUpdate,
     MessageInfo,
 )
-from app.schemas.rag import ChatStreamRequest, MessageFeedbackRequest
+from app.schemas.rag import (
+    ChatStreamRequest,
+    MessageFeedbackRequest,
+    RagSearchRequest,
+)
 from app.services.conversation_service import ConversationService
 from app.services.log_service import LogService
 from app.services.rag_service import RagService
@@ -62,6 +66,25 @@ async def chat_stream(
         req,
         ip_address=http_req.client.host if http_req and http_req.client else None,
     )
+
+
+# ==========================================
+# POST /search — 内部无状态检索 (ESD 集成, DESIGN 8.1)
+# ==========================================
+@router.post("/search", summary="内部检索 (ESD 集成)")
+async def search(
+    req: RagSearchRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(require_internal_key),
+):
+    """
+    无状态向量检索 — 供 ESD 知识 agent 调用。
+
+    鉴权: X-Internal-Key 头 (内部服务密钥, 不走 JWT)。
+    行为: 复用问答检索环节, 返回分块+来源, 无 LLM 调用、无消息落库。
+    """
+    resp = await RagService.search(db, req)
+    return success(data=resp.model_dump())
 
 
 # ==========================================

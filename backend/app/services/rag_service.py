@@ -43,6 +43,8 @@ from app.schemas.rag import (
     ChatSourcesEvent,
     ChatStreamRequest,
     MessageFeedbackRequest,
+    RagSearchRequest,
+    RagSearchResponse,
 )
 from app.services.config_service import ConfigService
 from app.services.conversation_service import ConversationService
@@ -554,6 +556,32 @@ class RagService:
                 e.message if isinstance(e, AppException) else "生成失败，请稍后重试"
             )
             yield sse_event(EVENT_ERROR, {"message": message})
+
+    # ==========================================
+    # 内部检索 (ESD 集成, POST /api/v1/rag/search)
+    # ==========================================
+
+    @staticmethod
+    async def search(db: AsyncSession, req: RagSearchRequest) -> RagSearchResponse:
+        """
+        无状态检索 — 供 ESD 知识 agent 调用 (DESIGN 8.1)。
+
+        复用问答链路的检索环节: 分类校验 → 检索参数 → 向量检索 → 分块/来源组装。
+        无 LLM 调用、无消息落库、无操作日志 (调用方自行组织回答)。
+        """
+        category_ids = req.category_ids or []
+        if category_ids:
+            await RagService._validate_category_ids(db, category_ids)
+
+        rag_params = await ConfigService.get_rag_params(db)
+        chunks = await RagService._retrieve(req.question, category_ids, rag_params)
+
+        return RagSearchResponse(
+            chunks=build_retrieved_chunks(chunks),
+            sources=build_sources(chunks),
+            top_k=int(rag_params["top_k"]),
+            similarity_threshold=float(rag_params["similarity_threshold"]),
+        )
 
     # ==========================================
     # 反馈

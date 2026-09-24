@@ -43,6 +43,31 @@ class MessageFeedbackRequest(BaseModel):
 
 
 # ==========================================
+# 内部检索接口 (POST /api/v1/rag/search, 供 ESD 知识 agent 调用)
+# ==========================================
+
+
+class RagSearchRequest(BaseModel):
+    """无状态检索请求 — 无 LLM、无落库, X-Internal-Key 鉴权"""
+
+    question: str = Field(min_length=1, max_length=4000, description="检索查询")
+    category_ids: list[int] | None = Field(
+        default=None, description="限定分类（空列表=不限）"
+    )
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class RagSearchResponse(BaseModel):
+    """检索结果 — 分块列表 + 按文档聚合的来源引用 + 本次检索参数"""
+
+    chunks: list[dict] = Field(default_factory=list, description="检索分块")
+    sources: list[dict] = Field(default_factory=list, description="来源引用")
+    top_k: int = Field(description="检索返回条数")
+    similarity_threshold: float = Field(description="相似度阈值")
+
+
+# ==========================================
 # SSE 事件负载 (data 字段 JSON 结构)
 # ==========================================
 

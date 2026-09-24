@@ -3,9 +3,10 @@
 提供: 数据库会话、当前用户鉴权、分页参数、角色校验
 """
 
+import hmac
 from collections.abc import AsyncGenerator
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import async_session_factory
 from app.core.security import decode_access_token
 from app.models.user import SysUser
+from app.services.config_service import ConfigService
+from app.utils.exceptions import UnauthorizedException
 
 # ==========================================
 # 数据库会话依赖
@@ -80,6 +83,30 @@ async def require_admin(
     if current_user.role != "admin":
         raise HTTPException(status_code=403, detail="需要管理员权限")
     return current_user
+
+
+# ==========================================
+# 内部服务密钥鉴权 (POST /api/v1/rag/search, 供 ESD 知识 agent 调用)
+# ==========================================
+
+
+async def require_internal_key(
+    x_internal_key: str | None = Header(default=None, alias="X-Internal-Key"),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    """
+    内部服务密钥校验 — DESIGN 8.1。
+
+    X-Internal-Key 头与 sys_config internal_api_key 比较,
+    hmac.compare_digest 防时序攻击; 缺头 / 密钥未配置 / 不匹配 → 40100 (fail-closed)。
+    """
+    expected = await ConfigService.get_value(db, "internal_api_key", None)
+    if (
+        not x_internal_key
+        or not expected
+        or not hmac.compare_digest(x_internal_key, str(expected))
+    ):
+        raise UnauthorizedException("内部服务密钥无效")
 
 
 # ==========================================

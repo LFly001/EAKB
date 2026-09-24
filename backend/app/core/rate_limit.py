@@ -205,6 +205,12 @@ class RateLimitMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # 豁免 /rag/search (DESIGN 8.1): ESD 同 IP 集中调用会触顶;
+        # 端点自有 X-Internal-Key 密钥保护, 无需按 IP 限流
+        if path == f"{settings.API_V1_PREFIX}/rag/search":
+            await self.app(scope, receive, send)
+            return
+
         config = await get_config()
         if not config.enabled:
             await self.app(scope, receive, send)

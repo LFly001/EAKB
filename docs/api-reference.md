@@ -1459,6 +1459,63 @@
 | `error_message` | string\|null | 生成失败原因（如「客户端连接中断，生成未完成」） |
 | `created_at` | datetime\|null | 创建时间 |
 
+### 8.9 POST /api/v1/rag/search — 内部检索（ESD 集成，内部密钥鉴权）
+
+无状态向量检索端点，供 **ESD（企业智能服务台）知识 agent** 服务端调用。复用问答链路的检索环节（分类校验 → 检索参数 → Chroma 向量检索 → 分块/来源组装），**无 LLM 调用、无消息落库、无操作日志**，由调用方自行组织回答。
+
+**鉴权**：不走 JWT，请求头 `X-Internal-Key` 与 `sys_config.internal_api_key`（迁移时随机生成）比对，`hmac.compare_digest` 防时序攻击；缺头 / 密钥未配置 / 不匹配 → `40100`（fail-closed）。本端点豁免 IP 限流（ESD 同 IP 集中调用会触顶，密钥自身即保护）。
+
+**请求体**：
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `question` | string | 是 | 检索查询（1-4000 字符） |
+| `category_ids` | int[] | 否 | 限定分类 ID 列表（空列表/缺省 = 不限；任一不存在 → 40000） |
+
+```bash
+curl -X POST http://localhost:8000/api/v1/rag/search \
+  -H "Content-Type: application/json" \
+  -H "X-Internal-Key: <internal_api_key>" \
+  -d '{"question": "年假怎么申请", "category_ids": [3]}'
+```
+
+**响应**（`data` 字段）：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `chunks` | object[] | 检索分块：`{chunk_id, document_id, title, text, score}`（与 `retrieved_chunks` 同构，见 [9.4](#94-sources--retrieved_chunks--token_usage-结构)） |
+| `sources` | object[] | 按文档聚合去重的来源引用（`relevance_score` 取该文档命中分块最高分） |
+| `top_k` | int | 本次检索返回条数（sys_config 实时值） |
+| `similarity_threshold` | float | 本次相似度阈值（sys_config 实时值） |
+
+```json
+{
+  "code": 200,
+  "msg": "success",
+  "data": {
+    "chunks": [
+      {
+        "chunk_id": "doc11-0",
+        "document_id": 11,
+        "title": "年假制度",
+        "text": "员工年假为每年 5 天。",
+        "score": 0.92
+      }
+    ],
+    "sources": [
+      {
+        "document_id": 11,
+        "title": "年假制度",
+        "file_name": "leave.pdf",
+        "relevance_score": 0.92
+      }
+    ],
+    "top_k": 5,
+    "similarity_threshold": 0.75
+  }
+}
+```
+
 ---
 
 ## 9. SSE 流式问答协议（完整契约）
